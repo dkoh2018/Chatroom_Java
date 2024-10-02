@@ -1,0 +1,224 @@
+Project Design Document
+
+1. Introduction
+
+Project Overview
+
+The Chatroom Java Application is a real-time messaging platform for users to communicate. Users can join chatrooms, have private conversations, see who's active, and broadcast messages. The goal is to make it easy for users to connect and share information.
+
+Problem Statement
+
+We need a simple chat app that supports both group and individual interactions. This project aims to provide a straightforward solution with essential communication features and efficient data management.
+
+2. Description of the Application
+
+Application Features
+
+Main Menu Options:
+
+- Chatrooms:
+  - Create Chatroom: Users can create new chatrooms.
+  - Join Chatroom: Users can join existing chatrooms.
+- Direct Message: Send private messages to another user.
+- Show Active Users: Display a list of active users.
+- MegaPhone: Broadcast messages to all active users or specific chatrooms.
+- Exit: Log out and close the application.
+
+Problem Solved by the Application
+
+The app solves communication issues by providing:
+
+- Unified Communication Platform: Group and private messaging in one app.
+- Real-Time Interaction: Instant communication with minimal delay.
+- User Engagement: Active user display and message broadcasting.
+- Scalability and Efficiency: Efficient data structures for handling multiple users and messages.
+
+3. Justification of Choice of Data Structures
+
+Efficient data management is key for a real-time chat app. The chosen data structures balance time and space complexities.
+
+3.1. HashMap for User Management
+
+- Structure: HashMap<String, User>
+- Key: username (String)
+- Value: User object with details and status.
+- Rationale:
+  - Fast Access: Average O(1) for insertion, search, and deletion.
+  - Uniqueness: Ensures each username is unique.
+- Time Complexity: Insertion, Search/Retrieval, Deletion: Average O(1)
+- Space Complexity: O(n), where n is the number of users.
+- Note: We use java.util.HashMap instead of Hashtable because HashMap is more modern and efficient. Thread-safety is not required for our single-threaded application.
+
+3.2. HashMap for Chatroom Management
+
+- Structure: HashMap<String, Chatroom>
+- Key: chatroomName or ID (String)
+- Value: Chatroom object with details and participants.
+- Rationale:
+  - Efficient Retrieval: Quick access to chatroom data.
+  - Scalability: Handles many chatrooms without performance loss.
+- Time Complexity: Similar to User Management HashMap.
+- Space Complexity: O(m), where m is the number of chatrooms.
+- Note: As with user management, we use java.util.HashMap.
+
+3.3. ArrayList for Message History
+
+- Structure: ArrayList<Message> within each Chatroom or DirectMessage object.
+- Rationale:
+  - Ordered Collection: Maintains message sequence.
+  - Dynamic Resizing: Adjusts size for varying message numbers.
+  - Efficient Indexing: Fast access by index.
+- Time Complexity: Insertion at End: Amortized O(1), Access by Index: O(1), Iteration: O(p)
+- Space Complexity: O(p), where p is the number of messages.
+- Note: In a single-threaded environment, messages are sent in real time as they are added to the message history. Delivery to users may vary slightly, but this is acceptable within our application's scope.
+
+3.4. HashSet for Active Users
+
+Structure: HashSet<User>
+Rationale:
+No Duplicates: Each active user is represented once.
+Fast Operations: O(1) for insertion, search, and deletion.
+Time Complexity: Insertion, Search, Deletion: Average O(1)
+Space Complexity: O(a), where a is the number of active users.
+Note: We use java.util.HashSet for efficient management of active users.
+
+4. Interaction and Integration Plan
+
+This section outlines how the app uses the chosen data structures and the algorithms for various operations.
+
+4.1. User Authentication and Management
+
+Interaction with Data Structures:
+
+Login Process:
+  Checks the users HashMap to verify credentials.
+  Adds the User object to the activeUsers HashSet upon successful login.
+Logout Process:
+  Removes the User object from the activeUsers HashSet.
+Algorithms:
+
+Authentication Algorithm:
+
+boolean authenticate(String username) {
+  return users.containsKey(username);
+}
+Complexity: O(1)
+
+Adding to Active Users:
+
+void addActiveUser(User user) {
+  activeUsers.add(user);
+}
+Complexity: O(1)
+
+4.2. Chatroom Creation and Management
+
+Interaction with Data Structures:
+
+Creating a Chatroom:
+  Checks the chatrooms HashMap to ensure the name is unique.
+  Adds a new Chatroom object to the chatrooms HashMap.
+Joining a Chatroom:
+  Retrieves the Chatroom object from the chatrooms HashMap.
+  Adds the User to the participants list within the Chatroom.
+Algorithms:
+
+Create Chatroom Algorithm:
+
+void createChatroom(String chatroomName) {
+  if (!chatrooms.containsKey(chatroomName)) {
+    chatrooms.put(chatroomName, new Chatroom(chatroomName));
+  }
+}
+Complexity: O(1)
+
+Join Chatroom Algorithm:
+
+void joinChatroom(String chatroomName, User user) {
+  Chatroom chatroom = chatrooms.get(chatroomName);
+  if (chatroom != null) {
+    chatroom.addParticipant(user);
+  }
+}
+Complexity: O(1)
+
+4.3. Messaging System
+
+Interaction with Data Structures:
+
+Sending Messages:
+  Creates a Message object with sender, content, and timestamp.
+  Adds the Message to the messageHistory ArrayList of the corresponding Chatroom or DirectMessage.
+Receiving Messages:
+  Retrieves messages from the messageHistory for display to the user.
+Algorithms:
+
+Send Message Algorithm:
+
+void sendMessage(Chatroom chatroom, Message message) {
+  chatroom.getMessageHistory().add(message);
+}
+Complexity: Amortized O(1)
+
+Retrieve Messages Algorithm:
+
+List<Message> getMessages(Chatroom chatroom) {
+  return chatroom.getMessageHistory();
+}
+Complexity: O(1) for retrieval, O(p) for iteration over messages.
+
+Note: Messages are sent in real time, and while delivery to different users may not be perfectly synchronized in a single-threaded environment, this is acceptable for our application's requirements.
+
+4.4. MegaPhone Feature
+
+Interaction with Data Structures:
+
+Broadcasting Messages:
+  Sends the message to all active users or adds it to the messageHistory of all chatrooms.
+Algorithms:
+
+Broadcast to All Active Users:
+
+void broadcastToAllUsers(Message message) {
+  for (User user : activeUsers) {
+    user.receiveMessage(message);
+  }
+}
+Complexity: O(a), where a is the number of active users.
+
+Broadcast to All Chatrooms:
+
+void broadcastToAllChatrooms(Message message) {
+  for (Chatroom chatroom : chatrooms.values()) {
+    chatroom.getMessageHistory().add(message);
+  }
+}
+Complexity: O(m), where m is the number of chatrooms.
+
+Note: Handling messages in parallel with multithreading and queues would add complexity beyond the scope of this project.
+
+4.5. Active Users Display
+
+Interaction with Data Structures:
+
+Retrieves the list of active users from the activeUsers HashSet for display.
+Algorithms:
+
+Display Active Users Algorithm:
+
+List<String> getActiveUsers() {
+  List<String> usernames = new ArrayList<>();
+  for (User user : activeUsers) {
+    usernames.add(user.getUsername());
+  }
+  return usernames;
+}
+Complexity: O(a)
+
+Integration Summary
+
+The integration of these data structures ensures:
+
+Efficiency: Operations are fast, providing a responsive user experience.
+Scalability: The app can handle more users and messages without performance loss.
+Data Integrity: Proper management of user sessions and chatrooms prevents data issues.

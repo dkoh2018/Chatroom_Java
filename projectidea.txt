@@ -1,0 +1,10 @@
+I propose creating a multi-client chatroom application where users can join or create chatrooms and communicate in real-time. The core idea is to allow multiple users to interact within chatrooms that are uniquely identified by a generated ID and secured with a password. The project will manage the flow of users entering and exiting chatrooms, broadcasting messages, and keeping track of active users.
+
+
+
+
+Chosen Data Structures:
+
+HashMap/Hashtable? (Is there a difference?): Used to store chatrooms and chatroom passwords (ID to password) for efficient lookup and validation when users try to join.
+
+Array + List: Used to maintain active members in each chatroom, allowing for efficient message broadcasting to all participants.
