@@ -1,2 +1,5 @@
+build/
+.vscode/
+target/
+
 Data\ Structures\ Project.pdf
-push_to_github.sh
