@@ -1,4 +1,4 @@
-package com.example;
+package com.chatapp;
 
 import java.util.Scanner;
 
