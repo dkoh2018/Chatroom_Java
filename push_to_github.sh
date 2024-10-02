@@ -1,10 +1,12 @@
+#!/bin/bash
 echo "Enter your commit message:"
 read commit_message
 
 git add .
-git commit -m "$commit_message"
-git push origin main
 
+git commit -m "$commit_message"
+
+git push origin main
 
 if [ $? -ne 0 ]; then
     echo "Rebase in progress, attempting to resolve conflicts..."
