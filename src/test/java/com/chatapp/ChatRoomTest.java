@@ -15,15 +15,15 @@ public class ChatRoomTest {
   @BeforeEach
   public void setUp() {
     chatRoom = new ChatRoom("TestRoom", 12345, false);
-    client1 = new TestClientHandler("User1");
-    client2 = new TestClientHandler("User2");
+    client1 = new TestClientHandler("J4RVIS ");
+    client2 = new TestClientHandler("David");
   }
 
   @Test
   public void testAddMember() {
     chatRoom.addMember(client1);
     List<String> members = chatRoom.listMembers();
-    assertTrue(members.contains("User1"), "User1 should be in the chat room");
+    assertTrue(members.contains("J4RVIS "), "J4RVIS  should be in the chat room");
   }
 
   @Test
@@ -31,7 +31,7 @@ public class ChatRoomTest {
     chatRoom.addMember(client1);
     chatRoom.removeMember(client1);
     List<String> members = chatRoom.listMembers();
-    assertFalse(members.contains("User1"), "User1 should not be in the chat room after removal");
+    assertFalse(members.contains("J4RVIS "), "J4RVIS  should not be in the chat room after removal");
   }
 
   @Test
@@ -57,23 +57,23 @@ public class ChatRoomTest {
     chatRoom.addMember(client2);
     List<String> members = chatRoom.listMembers();
     assertEquals(2, members.size(), "Chat room should have 2 members");
-    assertTrue(members.contains("User1"), "User1 should be in the chat room");
-    assertTrue(members.contains("User2"), "User2 should be in the chat room");
+    assertTrue(members.contains("J4RVIS "), "J4RVIS  should be in the chat room");
+    assertTrue(members.contains("David"), "David should be in the chat room");
   }
 
   @Test
   public void testPrivateChatRoomAccess() {
     ChatRoom privateChatRoom = new ChatRoom("PrivateRoom", 12346, true);
-    privateChatRoom.getAllowedUsers().add("User1");
+    privateChatRoom.getAllowedUsers().add("J4RVIS ");
 
-    // User1 should be able to join
+    // J4RVIS should be able to join
     privateChatRoom.addMember(client1);
     List<String> members = privateChatRoom.listMembers();
-    assertTrue(members.contains("User1"), "User1 should be able to join the private chat room");
+    assertTrue(members.contains("J4RVIS "), "J4RVIS  should be able to join the private chat room");
 
-    // User2 should not be able to join
+    // David should not be able to join
     privateChatRoom.addMember(client2);
     members = privateChatRoom.listMembers();
-    assertFalse(members.contains("User2"), "User2 should not be able to join the private chat room");
+    assertFalse(members.contains("David"), "David should not be able to join the private chat room");
   }
 }
