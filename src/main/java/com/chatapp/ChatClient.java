@@ -4,25 +4,36 @@ import java.io.*;
 import java.net.*;
 
 /**
- * A simple chat client that connects to the chat server.
- * 
- * How it works:
- * 1. Connects to the chat server running on localhost port 12345
- * 2. Creates two main components:
- * - A thread that listens for and displays messages from the server
- * - A main thread that reads user input and sends it to the server
- * 3. Handles basic commands like "/exit" to disconnect
+ * Client application for connecting to and interacting with the chat server.
+ * This class handles all client-side functionality including connecting to the
+ * server,
+ * sending messages, and receiving responses.
  *
- * Key Features:
- * - Real-time message display from other users
- * - Simple command-line interface
- * - Clean disconnection with /exit command
- * - Error handling for connection issues
+ * The client operates using two main threads:
+ * 1. A message listener thread that continuously receives and displays server
+ * messages
+ * 2. The main thread that handles user input and sends commands to the server
  */
 public class ChatClient {
-  public static void startClient() throws IOException {
 
-    try (Socket socket = new Socket("localhost", 12345);
+  /**
+   * Initiates and manages the client connection to the chat server.
+   * This method:
+   * - Establishes a socket connection to the server on localhost:12345
+   * - Creates input/output streams for server communication
+   * - Spawns a separate thread for receiving server messages
+   * - Processes user input and sends it to the server
+   * - Handles graceful disconnection via the /exit command
+   * - Provides error handling for network and I/O issues
+   *
+   * The method uses try-with-resources to ensure proper cleanup of system
+   * resources.
+   * All communication streams are automatically closed when the client
+   * disconnects.
+   */
+  public static void startClient() {
+    try (
+        Socket socket = new Socket("localhost", 12345);
         BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
@@ -45,7 +56,8 @@ public class ChatClient {
         if (!userInput.trim().isEmpty()) {
           out.println(userInput);
         }
-        if (userInput.equalsIgnoreCase("/exit")) {
+        if (userInput.trim().equalsIgnoreCase("/exit")) {
+          System.out.println("Disconnecting from the server...");
           break;
         }
       }

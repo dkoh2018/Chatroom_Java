@@ -5,30 +5,31 @@ import java.net.*;
 import java.util.*;
 
 /**
- * The ClientHandler class manages individual client connections and their
- * interactions with the chat server.
- * It provides functionality for users to:
- * - Create and join chat rooms
- * - Send messages in chat rooms
- * - Start private chats with other users
- * - View online users and available chat rooms
+ * Handles communication between the server and a connected client.
+ * This class manages all aspects of client interaction including user
+ * registration,
+ * chat room management, private messaging, and message handling.
+ *
+ * The handler runs as a separate thread for each connected client, allowing
+ * concurrent
+ * handling of multiple users. It maintains the client's socket connection,
+ * input/output
+ * streams, and current chat room state.
  */
 public class ClientHandler implements Runnable {
-  // Socket for client connection
   protected Socket socket;
-  // Input stream to receive messages from client
   protected BufferedReader in;
-  // Output stream to send messages to client
   protected PrintWriter out;
-  // Username of the connected client
   protected String username;
-  // Current chat room the client is in
   protected ChatRoom chatRoom;
+  private Map<String, String> pendingInvitations = new HashMap<>();
 
   /**
-   * Creates a new ClientHandler for a connected client
-   * 
-   * @param socket The client's socket connection
+   * Creates a new ClientHandler for a connected socket.
+   * Initializes the input and output streams for communication.
+   *
+   * @param socket The client's connected socket
+   * @throws IOException If there is an error creating the I/O streams
    */
   public ClientHandler(Socket socket) throws IOException {
     this.socket = socket;
@@ -37,51 +38,75 @@ public class ClientHandler implements Runnable {
   }
 
   /**
-   * Empty constructor for testing purposes
+   * Default constructor used for testing purposes.
+   * Does not initialize any connection-related fields.
    */
   public ClientHandler() {
-    // No initialization required for testing
+    // Empty constructor for testing
   }
 
   /**
-   * Main loop that handles client interaction:
-   * 1. Gets username from client
-   * 2. Shows main menu
-   * 3. Processes client commands
-   * 4. Handles disconnection
+   * Main execution method that handles the client's entire session.
+   * Manages user registration, displays the main menu, and processes
+   * all client commands until disconnection.
+   *
+   * The method handles:
+   * - Initial user registration
+   * - Main menu display and command processing
+   * - Chat invitation responses
+   * - Cleanup on disconnection
    */
   @Override
   public void run() {
     try {
+      // User registration
       out.println("\n=== Welcome to the Main Menu ===\n");
       out.println("Please enter your username:");
       username = in.readLine();
 
-      // Register user with the chat server
+      if (username == null || username.trim().isEmpty()) {
+        out.println("Invalid username. Connection closing.");
+        return;
+      }
+
       ChatServer.registerUser(username, this);
 
+      // Main menu loop
       while (true) {
         displayMainMenu();
         String choice = in.readLine();
+
+        if (choice == null) {
+          // Client disconnected
+          break;
+        }
+
+        if (choice.startsWith("/accept ")) {
+          String fromUser = choice.substring(8).trim();
+          acceptInvitation(fromUser);
+          continue;
+        } else if (choice.startsWith("/decline ")) {
+          String fromUser = choice.substring(9).trim();
+          declineInvitation(fromUser);
+          continue;
+        }
 
         switch (choice) {
           case "1":
             createChatRoom();
             break;
           case "2":
-            listChatRooms();
-            break;
-          case "3":
             joinChatRoom();
             break;
-          case "4":
+          case "3":
             listOnlineUsers();
             break;
-          case "5":
+          case "4":
             startPrivateChat();
             break;
           case "/exit":
-            return;
+            out.println("Goodbye!");
+            return; // Exit the run method
           default:
             out.println("\nInvalid choice. Please try again.\n");
         }
@@ -90,7 +115,7 @@ public class ClientHandler implements Runnable {
     } catch (IOException e) {
       System.err.println("Error handling client (" + username + "): " + e.getMessage());
     } finally {
-      // Unregister user and close resources
+      // Cleanup on disconnection
       ChatServer.unregisterUser(username);
       if (chatRoom != null) {
         chatRoom.removeMember(this);
@@ -104,121 +129,131 @@ public class ClientHandler implements Runnable {
   }
 
   /**
-   * Gets the username of this client
+   * Returns the username of this client.
+   *
+   * @return The client's username
    */
   public String getUsername() {
     return username;
   }
 
   /**
-   * Sends a message to this client
+   * Sends a message to this client.
+   *
+   * @param message The message to send
    */
   public void sendMessage(String message) {
     out.println(message);
   }
 
   /**
-   * Shows the main menu options to the client
+   * Displays the main menu options to the client.
+   * Shows available commands and navigation options.
    */
   private void displayMainMenu() {
     out.println("\n----------------------------");
     out.println("          Main Menu          ");
     out.println("----------------------------");
     out.println(" 1. Create a new chatroom");
-    out.println(" 2. List available chatrooms");
-    out.println(" 3. Join an existing chatroom");
-    out.println(" 4. List online users");
-    out.println(" 5. Start a private chat with a user");
-    out.println("/exit - Leave the chatroom");
+    out.println(" 2. Join an existing chatroom");
+    out.println(" 3. List online users");
+    out.println(" 4. Start a private chat with a user");
+    out.println("/exit - Exit the application");
     out.println("----------------------------");
     out.println("Enter your choice:\n");
   }
 
   /**
-   * Handles creation of a new chat room
-   * Allows setting room name, privacy settings, and allowed users
+   * Handles the creation of a new chat room.
+   * Prompts for room name and password, then creates the room.
+   *
+   * @throws IOException If there is an error reading client input
    */
   private void createChatRoom() throws IOException {
     out.println("\n--- Create a New Chatroom ---\n");
     out.println("Enter a name for your chatroom:");
     String roomName = in.readLine();
 
-    out.println("Is this a private chatroom? (yes/no):");
-    String privateChoice = in.readLine();
-    boolean isPrivate = privateChoice.equalsIgnoreCase("yes");
+    out.println("Set a password for your chatroom:");
+    String password = in.readLine();
 
-    List<String> allowedUsers = new ArrayList<>();
-    String password = "";
-
-    if (isPrivate) {
-      out.println("Enter the username(s) of the user(s) you want to invite (separated by commas):");
-      String users = in.readLine();
-      String[] userArray = users.split(",");
-      for (String user : userArray) {
-        allowedUsers.add(user.trim());
-      }
-      allowedUsers.add(username);
-    } else {
-      out.println("Set a password for your chatroom:");
-      password = in.readLine();
-    }
-
-    ChatRoom chatRoom = ChatServer.createChatRoom(roomName, password, isPrivate, allowedUsers);
+    ChatRoom chatRoom = ChatServer.createChatRoom(roomName, password, false);
     out.println("\nChatroom created!");
-    out.println("Chatroom ID: " + chatRoom.getName() + "\n");
+    out.println("Chatroom ID: " + ChatServer.getChatRoomID(chatRoom) + "\n");
   }
 
   /**
-   * Shows list of available chat rooms to the client
+   * Handles the process of joining an existing chat room.
+   * Validates room existence, password, and user permissions.
+   *
+   * @throws IOException If there is an error reading client input
    */
-  private void listChatRooms() throws IOException {
+  private void joinChatRoom() throws IOException {
+    out.println("\n--- Join an Existing Chatroom ---");
+    listAvailableChatRooms();
+    out.println("Enter the chatroom ID or name:");
+    String roomIdentifier = in.readLine();
+
+    if (roomIdentifier == null || roomIdentifier.trim().isEmpty()) {
+      out.println("\nInvalid input. Please try again.\n");
+      return;
+    }
+
+    ChatRoom chatRoom = ChatServer.getChatRoomByID(roomIdentifier);
+
+    if (chatRoom == null) {
+      chatRoom = ChatServer.getChatRoomByName(roomIdentifier);
+    }
+
+    if (chatRoom == null) {
+      out.println("\nChatroom not found. Please try again.\n");
+      return;
+    }
+
+    if (chatRoom.isPrivateChat()) {
+      if (!chatRoom.getAllowedUsers().contains(username)) {
+        out.println("\nYou are not allowed to join this private chatroom.\n");
+        return;
+      }
+    } else {
+      out.println("Enter the chatroom password:");
+      String password = in.readLine();
+      if (!chatRoom.getPassword().equals(password)) {
+        out.println("\nIncorrect password. Please try again.\n");
+        return;
+      }
+    }
+
+    out.println("\nSuccessfully joined the chatroom: " + chatRoom.getName() + " (ID: "
+        + ChatServer.getChatRoomID(chatRoom) + ")");
+    this.chatRoom = chatRoom;
+    chatRoom.addMember(this);
+
+    handleChatRoomMessages();
+  }
+
+  /**
+   * Displays a list of all available chat rooms to the client.
+   * Shows only rooms that the user has permission to join.
+   */
+  private void listAvailableChatRooms() {
     out.println("\n--- Available Chatrooms ---");
+    boolean roomsAvailable = false;
     for (Map.Entry<String, ChatRoom> entry : ChatServer.listChatRooms().entrySet()) {
       ChatRoom room = entry.getValue();
-      if (!room.isPrivate() || room.getAllowedUsers().contains(username)) {
+      if (!room.isPrivateChat() || room.getAllowedUsers().contains(username)) {
         out.println("ID: " + entry.getKey() + " | Name: " + room.getName());
+        roomsAvailable = true;
       }
+    }
+    if (!roomsAvailable) {
+      out.println("No available chatrooms at the moment.");
     }
     out.println("\n----------------------------\n");
   }
 
   /**
-   * Handles joining an existing chat room
-   * Verifies room ID and password if required
-   */
-  private void joinChatRoom() throws IOException {
-    out.println("\n--- Join a Chatroom ---");
-    out.println("Enter the chatroom ID:");
-    String roomID = in.readLine();
-
-    String password = "";
-    ChatRoom chatRoom = ChatServer.getChatRoomByID(roomID);
-
-    if (chatRoom == null) {
-      out.println("\nInvalid chatroom ID. Please try again.\n");
-      return;
-    }
-
-    if (!chatRoom.isPrivate()) {
-      out.println("Enter the chatroom password:");
-      password = in.readLine();
-    }
-
-    chatRoom = ChatServer.joinChatRoom(roomID, password, username);
-    if (chatRoom != null) {
-      out.println("\nSuccessfully joined the chatroom: " + chatRoom.getName() + " (ID: " + roomID + ")");
-      this.chatRoom = chatRoom;
-      chatRoom.addMember(this);
-
-      handleChatRoomMessages();
-    } else {
-      out.println(
-          "\nInvalid chatroom ID or password, or you are not allowed to join this chatroom. Please try again.\n");
-    }
-  }
-
-  /**
-   * Shows list of currently online users
+   * Displays a list of all currently online users.
    */
   private void listOnlineUsers() {
     out.println("\n--- Online Users ---");
@@ -229,28 +264,34 @@ public class ClientHandler implements Runnable {
   }
 
   /**
-   * Starts a private chat with another user
-   * Creates a private room and invites the target user
+   * Initiates a private chat with another user.
+   * Creates a private chat room and sends an invitation.
+   *
+   * @throws IOException If there is an error reading client input
    */
   private void startPrivateChat() throws IOException {
     out.println("\n--- Start a Private Chat ---");
     out.println("Enter the username of the user you want to chat with:");
     String targetUsername = in.readLine();
 
+    if (targetUsername == null || targetUsername.trim().isEmpty()) {
+      out.println("\nInvalid username. Please try again.\n");
+      return;
+    }
+
     if (ChatServer.isUserOnline(targetUsername)) {
       String roomName = username + " & " + targetUsername + "'s Private Chat";
-      List<String> allowedUsers = Arrays.asList(username, targetUsername);
-      ChatRoom chatRoom = ChatServer.createChatRoom(roomName, "", true, allowedUsers);
-
-      out.println("\nPrivate chatroom created!");
-      out.println("Chatroom ID: " + chatRoom.getName() + "\n");
-
-      ClientHandler targetUserHandler = ChatServer.getUserHandler(targetUsername);
-      targetUserHandler.sendMessage("\nUser '" + username + "' invites you to a private chat.");
-      targetUserHandler.sendMessage("Type '/join " + roomName + "' to join the chatroom.");
+      ChatRoom chatRoom = ChatServer.createChatRoom(roomName, null, true);
+      chatRoom.getAllowedUsers().add(username);
+      chatRoom.getAllowedUsers().add(targetUsername);
 
       this.chatRoom = chatRoom;
       chatRoom.addMember(this);
+
+      ClientHandler targetUserHandler = ChatServer.getUserHandler(targetUsername);
+      targetUserHandler.receiveInvitation(username, roomName);
+
+      out.println("\nInvitation sent to '" + targetUsername + "'. Waiting for their response...");
 
       handleChatRoomMessages();
     } else {
@@ -259,36 +300,120 @@ public class ClientHandler implements Runnable {
   }
 
   /**
-   * Handles message exchange within a chat room
-   * Processes special commands like /exit and /join
+   * Processes an incoming chat invitation from another user.
+   *
+   * @param fromUser     The username of the inviting user
+   * @param chatRoomName The name of the private chat room
+   */
+  public void receiveInvitation(String fromUser, String chatRoomName) {
+    pendingInvitations.put(fromUser, chatRoomName);
+    sendMessage("\nUser '" + fromUser + "' invites you to a private chat.");
+    sendMessage("Type '/accept " + fromUser + "' to join or '/decline " + fromUser + "' to decline.");
+  }
+
+  /**
+   * Handles acceptance of a chat invitation.
+   * Joins the private chat room and notifies the inviter.
+   *
+   * @param fromUser The username of the user who sent the invitation
+   */
+  private void acceptInvitation(String fromUser) {
+    String chatRoomName = pendingInvitations.remove(fromUser);
+    if (chatRoomName != null) {
+      ChatRoom room = ChatServer.getChatRoomByName(chatRoomName);
+      if (room != null) {
+        room.getAllowedUsers().add(username);
+        this.chatRoom = room;
+        chatRoom.addMember(this);
+        sendMessage("\nYou have accepted the invitation and joined the chatroom: " + chatRoom.getName());
+        ClientHandler inviter = ChatServer.getUserHandler(fromUser);
+        if (inviter != null) {
+          inviter.sendMessage("\nUser '" + username + "' has accepted your invitation.");
+        }
+        try {
+          handleChatRoomMessages();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      } else {
+        sendMessage("\nChatroom not found.");
+      }
+    } else {
+      sendMessage("\nNo invitation found from '" + fromUser + "'.");
+    }
+  }
+
+  /**
+   * Handles declining of a chat invitation.
+   * Removes the invitation and notifies the inviter.
+   *
+   * @param fromUser The username of the user who sent the invitation
+   */
+  private void declineInvitation(String fromUser) {
+    String chatRoomName = pendingInvitations.remove(fromUser);
+    if (chatRoomName != null) {
+      sendMessage("\nYou have declined the invitation from '" + fromUser + "'.");
+      ClientHandler inviter = ChatServer.getUserHandler(fromUser);
+      if (inviter != null) {
+        inviter.sendMessage("\nUser '" + username + "' has declined your invitation.");
+      }
+    } else {
+      sendMessage("\nNo invitation found from '" + fromUser + "'.");
+    }
+  }
+
+  /**
+   * Manages the message flow within a chat room.
+   * Handles commands and message broadcasting until the user exits.
+   *
+   * @throws IOException If there is an error reading client input
    */
   private void handleChatRoomMessages() throws IOException {
     out.println("\n--- Chatroom ---\n");
     String message;
-    while ((message = in.readLine()) != null) {
-      if (message.equalsIgnoreCase("/exit")) {
-        out.println("\nExiting the chatroom...\n");
-        break;
-      } else if (message.startsWith("/join ")) {
-        String roomName = message.substring(6).trim();
-        joinChatRoomByName(roomName);
-        break;
+    try {
+      while ((message = in.readLine()) != null) {
+        if (message.equalsIgnoreCase("/exit")) {
+          out.println("\nExiting the chatroom...\n");
+          break; // Exit the chatroom loop
+        } else if (message.startsWith("/join ")) {
+          String roomName = message.substring(6).trim();
+          joinChatRoomByName(roomName);
+          break;
+        } else if (message.startsWith("/accept ")) {
+          String fromUser = message.substring(8).trim();
+          acceptInvitation(fromUser);
+          continue;
+        } else if (message.startsWith("/decline ")) {
+          String fromUser = message.substring(9).trim();
+          declineInvitation(fromUser);
+          continue;
+        }
+        if (message.trim().isEmpty()) {
+          continue;
+        }
+        chatRoom.broadcastMessage(username + ": " + message, this);
       }
-      if (message.trim().isEmpty()) {
-        continue;
+    } catch (IOException e) {
+      System.err.println("Connection lost with user: " + username);
+    } finally {
+      if (chatRoom != null) {
+        chatRoom.removeMember(this);
+        this.chatRoom = null; // Reset current chatroom
       }
-      chatRoom.broadcastMessage(username + ": " + message, this);
+      out.println("You have returned to the main menu.");
     }
-    chatRoom.removeMember(this);
   }
 
   /**
-   * Joins a chat room using its name instead of ID
-   * Used primarily for private chat invitations
+   * Attempts to join a chat room by its name.
+   * Only allows joining private rooms where the user is allowed.
+   *
+   * @param roomName The name of the chat room to join
    */
   private void joinChatRoomByName(String roomName) {
     for (ChatRoom room : ChatServer.listChatRooms().values()) {
-      if (room.getName().equals(roomName) && room.isPrivate() && room.getAllowedUsers().contains(username)) {
+      if (room.getName().equals(roomName) && room.isPrivateChat() && room.getAllowedUsers().contains(username)) {
         this.chatRoom = room;
         chatRoom.addMember(this);
         out.println("\nSuccessfully joined the chatroom: " + chatRoom.getName());

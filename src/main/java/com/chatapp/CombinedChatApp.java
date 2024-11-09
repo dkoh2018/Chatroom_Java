@@ -3,19 +3,20 @@ package com.chatapp;
 import java.net.ServerSocket;
 
 /**
- * Main application class that combines both server and client functionality.
- * This class allows the chat application to run in a smart way - either as the
- * first instance
- * (which becomes the server) or subsequent instances (which become clients).
+ * Combined chat server and client application that provides a single entry
+ * point
+ * for running both components. Starts a server if needed, then launches a
+ * client.
  */
 public class CombinedChatApp {
+
   /**
-   * Main entry point of the application.
-   * First checks if a server is already running:
-   * - If no server is running, starts one in a new thread
-   * - If a server exists, connects as a client
-   * 
-   * @param args Command line arguments (not used)
+   * Main entry point that:
+   * 1. Checks for existing server on port 12345
+   * 2. Starts new server if needed
+   * 3. Launches client
+   *
+   * @param args Command line arguments (unused)
    */
   public static void main(String[] args) {
     if (!isServerRunning(12345)) {
@@ -40,10 +41,11 @@ public class CombinedChatApp {
   }
 
   /**
-   * Checks if a chat server is already running on the specified port.
-   * 
-   * @param port The port number to check (default 12345)
-   * @return true if a server is running, false otherwise
+   * Checks if a server is running on the specified port.
+   * Attempts to create a ServerSocket - if it fails, port is in use.
+   *
+   * @param port Port to check
+   * @return true if server running, false otherwise
    */
   private static boolean isServerRunning(int port) {
     try (ServerSocket serverSocket = new ServerSocket(port)) {
