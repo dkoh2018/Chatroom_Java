@@ -29,10 +29,8 @@ Before getting started, ensure that you have Java (JDK 17 or higher) and Maven i
    Download the project to your local machine:
 
    ```bash
-   git clone https://github.com/yourusername/Chatroom_Java.git
+   git clone https://github.com/dkoh2018/Chatroom_Java.git
    ```
-
-   _Note: Replace `yourusername` with your actual GitHub username._
 
 2. **Navigate to the Project Directory**
 
